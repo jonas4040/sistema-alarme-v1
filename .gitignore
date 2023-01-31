@@ -3,3 +3,5 @@ build
 Kconfig.projbuild
 sdkconfig.old
 sdkconfig
+sdkconfig
+sdkconfig.old

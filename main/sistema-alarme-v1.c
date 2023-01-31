@@ -4,6 +4,13 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 
+#include "nvs_flash.h"
+#include "lwip/err.h"
+#include "lwip/sys.h"
+
+#include "wifi-station.h"
+#include "mqtt-tls.h"
+
 //======VARIAVEIS E CONSTANTES============
 
 #define BTN_WIN1 5 // da janela quarto 1
@@ -14,7 +21,7 @@
 #define INPUT_BIT_MASK (1ULL << BTN_WIN1) | (1ULL << BTN_RESET)
 
 static QueueHandle_t win1_open_evt_queue = NULL, reset_evt_queue;
-uint8_t estadoJanQuarto1 = 0;
+uint8_t estadoJanQuarto1 = 0, i = 10;
 
 //=============FUNÇOES====================
 void init_io(void);
@@ -22,8 +29,16 @@ static void win1_isr_handler(void *);
 static void reset_isr_handler(void *);
 static void tocaAlarmeTask(void *);
 static void btnResetTask(void *);
+void leTempFake();
 
 void app_main(){
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+      ESP_ERROR_CHECK(nvs_flash_erase());
+      ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
     init_io();
 
     win1_open_evt_queue = xQueueCreate(10, sizeof(uint32_t));
@@ -34,6 +49,18 @@ void app_main(){
     gpio_install_isr_service(0);
     gpio_isr_handler_add(BTN_WIN1, win1_isr_handler, (void *)BTN_WIN1);
     gpio_isr_handler_add(BTN_RESET, reset_isr_handler, (void *)BTN_RESET);
+
+    wifi_inicializa();
+    mqtt_app_start();
+
+    while(1){
+        leTempFake();
+        vTaskDelay(700/portTICK_PERIOD_MS);
+
+        // msgRecebida = receberMsg("casa/temperatura/quarto1",1);
+        vTaskDelay(700/portTICK_PERIOD_MS);
+    }
+
 }
 
 void init_io(){
@@ -98,4 +125,12 @@ static void tocaAlarmeTask(void *arg){
             vTaskDelay(80 / portTICK_PERIOD_MS);
         }
     }
+}
+
+void leTempFake(){
+     char msg[150];
+      sprintf(msg,"{\"valor\":\"%d\"}",i);
+      enviarMsg("casa/temperatura/quarto1",msg,1,1);
+      i/=10;
+      i--;
 }
