@@ -16,7 +16,6 @@
 #include "nvs_flash.h"
 #include "esp_event.h"
 #include "esp_netif.h"
-#include "mqtt_client.h"
 #include "mqtt_msg.h"
 
 #include "esp_log.h"
