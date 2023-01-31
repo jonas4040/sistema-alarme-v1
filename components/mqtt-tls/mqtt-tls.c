@@ -16,6 +16,8 @@
 #include "nvs_flash.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "mqtt_client.h"
+#include "mqtt_msg.h"
 
 #include "esp_log.h"
 #include "mqtt_client.h"
@@ -60,14 +62,14 @@ void enviarMsg(char *topico, char *msg, uint8_t qos, uint8_t retain){
 char* receberMsg(char *topico, uint8_t qos){
     char *msg_data = NULL;
 
-    // int msg_id = esp_mqtt_client_subscribe(client,topico,qos);
+    int msg_id = esp_mqtt_client_subscribe(client,topico,qos);
 
-    // uint8_t *msg_buf = client->mqtt_state.in_buffer;
-    // size_t msg_read_len = client->mqtt_state.in_buffer_read_len;
-    // size_t msg_data_len = msg_read_len;
+    uint8_t *msg_buf = client->mqtt_state.in_buffer;
+    size_t msg_read_len = client->mqtt_state.in_buffer_read_len;
+    size_t msg_data_len = msg_read_len;
 
-    // msg_data = mqtt_get_publish_data(msg_buf, &msg_data_len);
-    // ESP_LOGI(TAG, "Dado recebido com o seguinte id e mensagem =%d \n\t\t%s", msg_id,msg_data);
+    msg_data = mqtt_get_publish_data(msg_buf, &msg_data_len);
+    ESP_LOGI(TAG, "Dado recebido com o seguinte id e mensagem =%d \n\t\t%s", msg_id,msg_data);
     return msg_data;
 }
 

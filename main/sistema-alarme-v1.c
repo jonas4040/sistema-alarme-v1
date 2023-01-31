@@ -52,12 +52,13 @@ void app_main(){
 
     wifi_inicializa();
     mqtt_app_start();
-
+    
+    char *msgRecebida = NULL;
     while(1){
         leTempFake();
         vTaskDelay(700/portTICK_PERIOD_MS);
 
-        // msgRecebida = receberMsg("casa/temperatura/quarto1",1);
+        msgRecebida = receberMsg("casa/janela/quarto1",1);
         vTaskDelay(700/portTICK_PERIOD_MS);
     }
 

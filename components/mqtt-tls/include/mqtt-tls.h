@@ -16,7 +16,7 @@ void enviarMsg( char *, char *, uint8_t, uint8_t);
  * @param qos qualidade do serviço: 0,1 ou 2
  * @return msg_data: mensagem recebida
 */
-char* receberMsg(char *, uint8_t){
+char* receberMsg(char *, uint8_t);
 
 void mqtt_event_handler(void *, esp_event_base_t , int32_t , void *);
 void mqtt_app_start(void);
