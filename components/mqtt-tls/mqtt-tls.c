@@ -17,6 +17,8 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "mqtt_msg.h"
+#include "mqtt_client_priv.h"
+
 
 #include "esp_log.h"
 #include "mqtt_client.h"
