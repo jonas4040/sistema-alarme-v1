@@ -61,12 +61,14 @@ void app_main(){
 
         // printf("\t\tTOPICO: %s\r\n", TOPICO_MSG_RECEBIDA);
         // printf("\t\tMENSAGEM: %s\r\n", MENSAGEM_RECEBIDA);
-        msgRecebida = MENSAGEM_RECEBIDA;
+        sprintf(msgRecebida,"%.*s\r",strlen(MENSAGEM_RECEBIDA),MENSAGEM_RECEBIDA);
+        //*msgRecebida++='\0';
 
-        //TODO COMPARAR STRINGS E USAR JSON 
+        //TODO USAR JSON 
         if(strncmp(msgRecebida,"{\"ligado\": \"false\"}", strlen(msgRecebida)) == 0 ){
             estadoJanQuarto1=0;
         }else{
+            printf("\t\tCOMPARACAO: %d\n",strncmp(msgRecebida,"{\"ligado\":\"false\"}", strlen(msgRecebida)));
             printf("NAO FUNFOU \n\t\t%s\n",msgRecebida) ;
         }
     }
@@ -74,7 +76,7 @@ void app_main(){
 }
 
 void init_io(){
-    gpio_config_t pin_config = {};
+    gpio_config_t pin_config = {};  
 
     // INPUTS
 
