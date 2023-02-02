@@ -31,6 +31,9 @@
 static const char *TAG = "MQTTS_CNX";
 esp_mqtt_client_handle_t client;
 
+char *MENSAGEM_RECEBIDA="";
+char *TOPICO_MSG_RECEBIDA="";
+
 #define BROKER_URL CONFIG_BROKER_URI
 #define BROKER_USR CONFIG_BROKER_USERNAME
 #define BROKER_PASSWD CONFIG_BROKER_PASSWD
@@ -42,6 +45,7 @@ extern const uint8_t ca_pem_start[]   asm("_binary_ca_pem_start");
 #endif
 extern const uint8_t ca_pem_end[]   asm("_binary_ca_pem_end");
 
+void testaMem();
 /**
  * @brief FUNCAO PARA ENVIAR MENSAGEM E PUBLICAR EM UM TOPICO DEFINIDO
  * @param topico topico
@@ -92,7 +96,7 @@ char* receberMsg(char *topico, uint8_t qos){
     switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "Conectado ! ");
-        esp_mqtt_client_subscribe(client, "camara", 0);
+        esp_mqtt_client_subscribe(client, "casa/janela/#", 1);
         ESP_LOGI(TAG,"Subscreveu no topico!");
         break;
     case MQTT_EVENT_DISCONNECTED:
@@ -110,8 +114,10 @@ char* receberMsg(char *topico, uint8_t qos){
         break;
     case MQTT_EVENT_DATA:
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-        printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-        printf("DATA=%.*s\r\n", event->data_len, event->data);
+        // printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
+        // printf("DATA=%.*s\r\n", event->data_len, event->data);
+        MENSAGEM_RECEBIDA = event->data;
+        TOPICO_MSG_RECEBIDA=event->topic;
         if (strncmp(event->data, "send binary please", event->data_len) == 0) {
             ESP_LOGI(TAG, "Enviando . . . ");
         }
@@ -151,10 +157,25 @@ char* receberMsg(char *topico, uint8_t qos){
 
     };
 
-    ESP_LOGI(TAG, "[APP] Free memory: %d bytes", (int)esp_get_free_heap_size());
+    ESP_LOGI(TAG, "[APP] Free HEAP memory: %d bytes", (int)esp_get_free_heap_size());
     
     client = esp_mqtt_client_init(&mqtt_cfg);
     /* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
     esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
     esp_mqtt_client_start(client);
+
+}
+
+void testaMem(){
+    printf("\t\tTESTANDO ...\n");
+    ESP_LOGI(TAG, "[APP] Startup..");
+    ESP_LOGI(TAG, "[APP] Free memory: %d bytes", (int)esp_get_free_heap_size());
+    ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
+
+    esp_log_level_set("*", ESP_LOG_INFO);
+    esp_log_level_set("esp-tls", ESP_LOG_VERBOSE);
+    esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
+    esp_log_level_set("MQTT_EXAMPLE", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT_BASE", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
 }

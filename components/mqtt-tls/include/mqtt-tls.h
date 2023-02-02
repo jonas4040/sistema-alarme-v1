@@ -20,3 +20,4 @@ char* receberMsg(char *, uint8_t);
 
 void mqtt_event_handler(void *, esp_event_base_t , int32_t , void *);
 void mqtt_app_start(void);
+void testaMem(void);

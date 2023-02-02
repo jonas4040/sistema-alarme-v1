@@ -22,7 +22,9 @@
 
 static QueueHandle_t win1_open_evt_queue = NULL, reset_evt_queue;
 uint8_t estadoJanQuarto1 = 0, i = 10;
-
+char *msgRecebida = "";
+extern char *MENSAGEM_RECEBIDA;
+extern char *TOPICO_MSG_RECEBIDA;
 //=============FUNÇOES====================
 void init_io(void);
 static void win1_isr_handler(void *);
@@ -53,13 +55,20 @@ void app_main(){
     wifi_inicializa();
     mqtt_app_start();
     
-    char *msgRecebida = NULL;
     while(1){
         leTempFake();
         vTaskDelay(700/portTICK_PERIOD_MS);
 
-        msgRecebida = receberMsg("casa/janela/quarto1",1);
-        vTaskDelay(700/portTICK_PERIOD_MS);
+        // printf("\t\tTOPICO: %s\r\n", TOPICO_MSG_RECEBIDA);
+        // printf("\t\tMENSAGEM: %s\r\n", MENSAGEM_RECEBIDA);
+        msgRecebida = MENSAGEM_RECEBIDA;
+
+        //TODO COMPARAR STRINGS E USAR JSON 
+        if(strncmp(msgRecebida,"{\"ligado\": \"false\"}", strlen(msgRecebida)) == 0 ){
+            estadoJanQuarto1=0;
+        }else{
+            printf("NAO FUNFOU \n\t\t%s\n",msgRecebida) ;
+        }
     }
 
 }
