@@ -88,7 +88,7 @@ char* receberMsg(char *topico, uint8_t qos){
     switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "Conectado ! ");
-        esp_mqtt_client_subscribe(client, "casa/janela/#", 1);
+        esp_mqtt_client_subscribe(client, "casa/quarto1/#", 1);
         ESP_LOGI(TAG,"Subscreveu no topico!");
         break;
     case MQTT_EVENT_DISCONNECTED:
