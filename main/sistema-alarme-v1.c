@@ -3,6 +3,7 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#include "esp_log.h"
 
 #include "nvs_flash.h"
 #include "lwip/err.h"
@@ -10,6 +11,8 @@
 
 #include "wifi-station.h"
 #include "mqtt-tls.h"
+#include "cJSON.h"
+//#include "cJSON_Utils.h"
 
 //======VARIAVEIS E CONSTANTES============
 
@@ -19,6 +22,8 @@
 #define ALARM 1
 #define OUTPUT_BIT_MASK (1ULL << ALARM) | (1ULL << LED_RESET)
 #define INPUT_BIT_MASK (1ULL << BTN_WIN1) | (1ULL << BTN_RESET)
+
+const char* TAG_JSON="cJSON";
 
 static QueueHandle_t win1_open_evt_queue = NULL, reset_evt_queue;
 uint8_t estadoJanQuarto1 = 0, i = 10;
@@ -95,18 +100,34 @@ static void reset_isr_handler(void *args){
 }
 
 static void mqttTask(void *arg){
+    cJSON *msgJSON = cJSON_Parse(msgRecebida);
+    cJSON *alarmeLigado = cJSON_GetObjectItem(msgJSON,"ligado");
     while(1){
         leTempFake();
         vTaskDelay(700/portTICK_PERIOD_MS);
 
         sprintf(msgRecebida,"%.*s\r",strlen(MENSAGEM_RECEBIDA),MENSAGEM_RECEBIDA);
 
-        //TODO USAR JSON 
-        verificaReset(estadoJanQuarto1);
-        // }else{
-        //     printf("\t\tCOMPARACAO: %d\n",strncmp(msgRecebida,"{\"ligado\":false}", strlen(msgRecebida)));
-        //     printf("NAO FUNFOU \n\t\t%s\n",msgRecebida) ;
+        while(cJSON_IsFalse(alarmeLigado)){
+            
+                verificaReset(estadoJanQuarto1);
+                cJSON_AddTrueToObject(msgJSON,"ligado");
+                
+                if(cJSON_IsTrue(alarmeLigado)){
+                    printf("\tJSON DO CONTRARIO\n");
+                    vTaskDelay(40/portTICK_PERIOD_MS);
+                    break;
+                }
+        }
+        
+        //else{
+        //     ESP_LOGE(TAG_JSON,"NAO CONSEGUIU VERIFICAR JSON!\n") ;
         // }
+        
+        //TODO nao tem como imprimir booleano
+        //printf("\t\tresultado JSON: %s",cJSON_Print(alarmeLigado));
+
+        cJSON_Delete(msgJSON);
     }
 }
 
@@ -139,9 +160,8 @@ static void tocaAlarmeTask(void *arg){
 }
 
 void verificaReset(uint8_t situacaoQuarto1){
-    
     if(!situacaoQuarto1){
-            for(uint8_t twice = 0;twice < 2;twice++){
+            for(uint8_t twice = 2;twice>0;twice--){
                 gpio_set_level(LED_RESET, 1);
                 vTaskDelay(80 / portTICK_PERIOD_MS);
                 gpio_set_level(LED_RESET, 0);
