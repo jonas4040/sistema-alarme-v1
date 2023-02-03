@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -12,6 +13,7 @@
 #include "wifi-station.h"
 #include "mqtt-tls.h"
 #include "cJSON.h"
+
 //#include "cJSON_Utils.h"
 
 //======VARIAVEIS E CONSTANTES============
@@ -27,7 +29,6 @@ const char* TAG_JSON="cJSON";
 
 static QueueHandle_t win1_open_evt_queue = NULL, reset_evt_queue;
 uint8_t estadoJanQuarto1 = 0, i = 10;
-char *msgRecebida = "";
 extern char *MENSAGEM_RECEBIDA;
 extern char *TOPICO_MSG_RECEBIDA;
 //=============FUNÇOES====================
@@ -38,7 +39,9 @@ static void tocaAlarmeTask(void *);
 static void btnResetTask(void *);
 static void mqttTask(void *);
 void leTempFake();
-void verificaReset(uint8_t);
+uint8_t verificaReset(uint8_t);
+
+//    bool msgRec=true;
 
 void app_main(){
     esp_err_t ret = nvs_flash_init();
@@ -52,6 +55,8 @@ void app_main(){
 
     win1_open_evt_queue = xQueueCreate(10, sizeof(uint32_t));
     reset_evt_queue = xQueueCreate(10, sizeof(uint32_t));
+
+    //srand(time(NULL)); // Initialization, should only be called once.
 
     wifi_inicializa();
     mqtt_app_start();
@@ -100,32 +105,22 @@ static void reset_isr_handler(void *args){
 }
 
 static void mqttTask(void *arg){
-    cJSON *msgJSON = cJSON_Parse(msgRecebida);
-    cJSON *alarmeLigado = cJSON_GetObjectItem(msgJSON,"ligado");
+    //TODO Apagar
+    //sprintf(msgRecebida,"%.*s\r",strlen(MENSAGEM_RECEBIDA),MENSAGEM_RECEBIDA);
+    
     while(1){
         leTempFake();
         vTaskDelay(700/portTICK_PERIOD_MS);
+        //msgRec=rand() & 1;
+        //printf("RECEB: %s\n",MENSAGEM_RECEBIDA);
 
-        sprintf(msgRecebida,"%.*s\r",strlen(MENSAGEM_RECEBIDA),MENSAGEM_RECEBIDA);
-
-        while(cJSON_IsFalse(alarmeLigado)){
-            
-                verificaReset(estadoJanQuarto1);
-                cJSON_AddTrueToObject(msgJSON,"ligado");
-                
-                if(cJSON_IsTrue(alarmeLigado)){
-                    printf("\tJSON DO CONTRARIO\n");
-                    vTaskDelay(40/portTICK_PERIOD_MS);
-                    break;
-                }
+        cJSON *msgJSON = cJSON_Parse(MENSAGEM_RECEBIDA);
+        cJSON *alarmeLigado = cJSON_GetObjectItem(msgJSON,"ligado");
+        //bool alarmeLigado = msgRec;
+        if(cJSON_IsFalse(alarmeLigado)){
+            uint32_t numPino;
+            xQueueSend(reset_evt_queue, &numPino, portTICK_PERIOD_MS);
         }
-        
-        //else{
-        //     ESP_LOGE(TAG_JSON,"NAO CONSEGUIU VERIFICAR JSON!\n") ;
-        // }
-        
-        //TODO nao tem como imprimir booleano
-        //printf("\t\tresultado JSON: %s",cJSON_Print(alarmeLigado));
 
         cJSON_Delete(msgJSON);
     }
@@ -159,21 +154,34 @@ static void tocaAlarmeTask(void *arg){
     }
 }
 
-void verificaReset(uint8_t situacaoQuarto1){
-    if(!situacaoQuarto1){
+/**
+ * @brief Funcao que faz o reset do alarme
+ * @param situacaoComodo estado da porta ou da janela
+ * @returns 0 se nao resetou e 1 se foi resetado com sucesso
+*/
+uint8_t verificaReset(uint8_t situacaoComodo){
+    uint8_t ret = 0;
+    if(!situacaoComodo){
             for(uint8_t twice = 2;twice>0;twice--){
                 gpio_set_level(LED_RESET, 1);
                 vTaskDelay(80 / portTICK_PERIOD_MS);
                 gpio_set_level(LED_RESET, 0);
                 vTaskDelay(80 / portTICK_PERIOD_MS);
             }
+        ret=1;
     }
+    return ret;
 }
 
+/**
+ * @brief le temperatura e o estado do alarme
+ * */
 void leTempFake(){
-     char msg[150];
-      sprintf(msg,"{\"valor\":\"%d\"}",i);
-      enviarMsg("casa/temperatura/quarto1",msg,1,1);
+     char msgT[150],msgJP[150];
+      sprintf(msgT,"{\"valor\":\"%d\"}",i);
+      sprintf(msgJP,"{\"ligado\":\"%d\"}",true);
+      enviarMsg("casa/quarto1/temperatura",msgT,1,1);
+      enviarMsg("casa/quarto1/alarme",msgJP,1,1);
       i/=10;
       i--;
 }
