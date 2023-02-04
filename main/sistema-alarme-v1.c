@@ -12,6 +12,7 @@
 
 #include "wifi-station.h"
 #include "mqtt-tls.h"
+#include "ds18b20.h"
 #include "cJSON.h"
 
 //#include "cJSON_Utils.h"
@@ -22,6 +23,7 @@
 #define BTN_RESET 6
 #define LED_RESET 39
 #define ALARM 1
+#define SENSOR_TEMPERATURA 18
 #define OUTPUT_BIT_MASK (1ULL << ALARM) | (1ULL << LED_RESET)
 #define INPUT_BIT_MASK (1ULL << BTN_WIN1) | (1ULL << BTN_RESET)
 
@@ -35,10 +37,14 @@ extern char *TOPICO_MSG_RECEBIDA;
 void init_io(void);
 static void win1_isr_handler(void *);
 static void reset_isr_handler(void *);
+
 static void tocaAlarmeTask(void *);
 static void btnResetTask(void *);
+static void temperaturaEstadoTask(void *);
 static void mqttTask(void *);
+
 void leTempFake();
+float leTemperatura();
 uint8_t verificaReset(uint8_t);
 
 //    bool msgRec=true;
@@ -58,12 +64,14 @@ void app_main(){
 
     //srand(time(NULL)); // Initialization, should only be called once.
 
+    ds18b20_init(SENSOR_TEMPERATURA);
     wifi_inicializa();
     mqtt_app_start();
 
     xTaskCreatePinnedToCore(tocaAlarmeTask, "tocaAlarmeTask", 2048, NULL, 10, NULL, 1);
     xTaskCreatePinnedToCore(btnResetTask, "btnResetTask", 2048, NULL, 10, NULL, 1);
-    xTaskCreatePinnedToCore(mqttTask,"mqttTask",4096,NULL,10,NULL,0);
+    xTaskCreatePinnedToCore(temperaturaEstadoTask, "temperaturaEstadoTask", 4096, NULL, 10, NULL, 1);
+    xTaskCreatePinnedToCore(mqttTask,"mqttTask",6144,NULL,10,NULL,0);
 
     gpio_install_isr_service(0);
     gpio_isr_handler_add(BTN_WIN1, win1_isr_handler, (void *)BTN_WIN1);
@@ -109,8 +117,6 @@ static void mqttTask(void *arg){
     //sprintf(msgRecebida,"%.*s\r",strlen(MENSAGEM_RECEBIDA),MENSAGEM_RECEBIDA);
     
     while(1){
-        leTempFake();
-        vTaskDelay(700/portTICK_PERIOD_MS);
         //msgRec=rand() & 1;
         //printf("RECEB: %s\n",MENSAGEM_RECEBIDA);
 
@@ -154,6 +160,22 @@ static void tocaAlarmeTask(void *arg){
     }
 }
 
+static void temperaturaEstadoTask(void *args ){
+    float temperatura = 25.0;
+    while(1){
+        temperatura = leTemperatura();
+        vTaskDelay(700/portTICK_PERIOD_MS);
+        char msgT[150],msgJP[150];
+
+        //TODO usar cJSON
+        sprintf(msgT,"{\"valor\":\"%f\"}",temperatura);
+        sprintf(msgJP,"{\"ligado\":\"%d\"}",true);
+        enviarMsg("casa/quarto1/temperatura",msgT,1,1);
+        enviarMsg("casa/quarto1/alarme",msgJP,1,1);
+        
+    }
+}
+
 /**
  * @brief Funcao que faz o reset do alarme
  * @param situacaoComodo estado da porta ou da janela
@@ -175,13 +197,19 @@ uint8_t verificaReset(uint8_t situacaoComodo){
 
 /**
  * @brief le temperatura e o estado do alarme
+ * @returns temperatura em graus Celsius em float
  * */
+
+float leTemperatura(){
+    return ds18b20_get_temp();
+}
+
 void leTempFake(){
-     char msgT[150],msgJP[150];
-      sprintf(msgT,"{\"valor\":\"%d\"}",i);
-      sprintf(msgJP,"{\"ligado\":\"%d\"}",true);
-      enviarMsg("casa/quarto1/temperatura",msgT,1,1);
-      enviarMsg("casa/quarto1/alarme",msgJP,1,1);
-      i/=10;
-      i--;
+    // char msgT[150],msgJP[150];
+    // sprintf(msgT,"{\"valor\":\"%d\"}",i);
+    // sprintf(msgJP,"{\"ligado\":\"%d\"}",true);
+    // enviarMsg("casa/quarto1/temperatura",msgT,1,1);
+    // enviarMsg("casa/quarto1/alarme",msgJP,1,1);
+    i/=10;
+    i--;
 }
