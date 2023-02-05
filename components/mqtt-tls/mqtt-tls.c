@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+
 #include "esp_system.h"
 #include "esp_partition.h"
 #include "nvs_flash.h"
@@ -29,12 +30,15 @@
 static const char *TAG = "MQTTS_CNX";
 esp_mqtt_client_handle_t client;
 
-char *MENSAGEM_RECEBIDA="";
+char **MENSAGEM_RECEBIDA;
 char *TOPICO_MSG_RECEBIDA="";
 
 #define BROKER_URL CONFIG_BROKER_URI
 #define BROKER_USR CONFIG_BROKER_USERNAME
 #define BROKER_PASSWD CONFIG_BROKER_PASSWD
+#define BUFFER_SIZE 4096
+
+uint8_t buffer[BUFFER_SIZE];
 
 #if CONFIG_BROKER_CERTIFICATE_OVERRIDDEN == 1
 static const uint8_t ca_pem_start[]  = "-----BEGIN CERTIFICATE-----\n" CONFIG_BROKER_CERTIFICATE_OVERRIDE "\n-----END CERTIFICATE-----";
@@ -85,6 +89,7 @@ char* receberMsg(char *topico, uint8_t qos){
     ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, (int)event_id);
     esp_mqtt_event_handle_t event = event_data;
     esp_mqtt_client_handle_t client = event->client;
+
     switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "Conectado ! ");
@@ -106,10 +111,12 @@ char* receberMsg(char *topico, uint8_t qos){
         break;
     case MQTT_EVENT_DATA:
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
+        mqtt_callback(event);//TODO apagar
+
         // printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-        // printf("DATA=%.*s\r\n", event->data_len, event->data);
-        MENSAGEM_RECEBIDA = event->data;
-        TOPICO_MSG_RECEBIDA=event->topic;
+        // printf("DADO MENSAGEM = %.*s\r\n", event->data_len, event->data);
+        //TODO APAGAR // MENSAGEM_RECEBIDA = event->data;
+        // TOPICO_MSG_RECEBIDA=event->topic;
         if (strncmp(event->data, "send binary please", event->data_len) == 0) {
             ESP_LOGI(TAG, "Enviando . . . ");
         }
@@ -132,6 +139,31 @@ char* receberMsg(char *topico, uint8_t qos){
         break;
     }
 }
+
+void mqtt_callback(esp_mqtt_event_handle_t event) {
+    int msg_len = event->data_len;
+    if (msg_len > BUFFER_SIZE) {
+        ESP_LOGE(TAG, "MENSAGEM GRANDE DEMAIS, IGNORANDO ...");
+        return;
+    }
+    memcpy(buffer, event->data, min(msg_len, BUFFER_SIZE));
+    buffer[min(msg_len, BUFFER_SIZE)] = '\0';
+
+    //PERCORRE AS MENSAGENS
+    //char **iStr = MENSAGEM_RECEBIDA;
+    size_t i = 0;
+    //while(*iStr){
+        sprintf(MENSAGEM_RECEBIDA[i],"%s \r",event->data);
+        //sprintf(TOPICO_MSG_RECEBIDA,"%s\r",event->topic);
+        ++i;
+        //++iStr;
+    //}
+        
+    
+    memset(buffer, 0, BUFFER_SIZE);
+}
+
+
 
  void mqtt_app_start(void){
     //testaMem();//verbose function
@@ -156,6 +188,10 @@ char* receberMsg(char *topico, uint8_t qos){
     esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
     esp_mqtt_client_start(client);
 
+}
+
+size_t min(int num1,int num2){
+    return num1 < num2 ? num1 : num2;
 }
 
 void testaMem(){

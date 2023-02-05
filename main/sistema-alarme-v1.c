@@ -30,8 +30,8 @@
 const char* TAG_JSON="cJSON";
 
 static QueueHandle_t win1_open_evt_queue = NULL, reset_evt_queue;
-uint8_t estadoJanQuarto1 = 0, i = 10;
-extern char *MENSAGEM_RECEBIDA;
+uint8_t estadoJanQuarto1 = 0, i = 10;/** @param estadoJanQuarto1 == 0 eh fechada a janela **/
+extern char **MENSAGEM_RECEBIDA;
 extern char *TOPICO_MSG_RECEBIDA;
 //=============FUNÇOES====================
 void init_io(void);
@@ -40,7 +40,7 @@ static void reset_isr_handler(void *);
 
 static void tocaAlarmeTask(void *);
 static void btnResetTask(void *);
-static void temperaturaEstadoTask(void *);
+static void temperaturaTask(void *);
 static void mqttTask(void *);
 
 void leTempFake();
@@ -70,7 +70,7 @@ void app_main(){
 
     xTaskCreatePinnedToCore(tocaAlarmeTask, "tocaAlarmeTask", 2048, NULL, 10, NULL, 1);
     xTaskCreatePinnedToCore(btnResetTask, "btnResetTask", 2048, NULL, 10, NULL, 1);
-    xTaskCreatePinnedToCore(temperaturaEstadoTask, "temperaturaEstadoTask", 4096, NULL, 10, NULL, 1);
+    xTaskCreatePinnedToCore(temperaturaTask, "temperaturaTask", 4096, NULL, 10, NULL, 1);
     xTaskCreatePinnedToCore(mqttTask,"mqttTask",6144,NULL,10,NULL,0);
 
     gpio_install_isr_service(0);
@@ -113,16 +113,23 @@ static void reset_isr_handler(void *args){
 }
 
 static void mqttTask(void *arg){
-    //TODO Apagar
-    //sprintf(msgRecebida,"%.*s\r",strlen(MENSAGEM_RECEBIDA),MENSAGEM_RECEBIDA);
-    
     while(1){
-        //msgRec=rand() & 1;
-        //printf("RECEB: %s\n",MENSAGEM_RECEBIDA);
-
-        cJSON *msgJSON = cJSON_Parse(MENSAGEM_RECEBIDA);
+        //msgRec=rand() & 1;S
+                cJSON *msgJSON = cJSON_Parse(MENSAGEM_RECEBIDA[1]);
+        // char **jStr = MENSAGEM_RECEBIDA;
+        // size_t j = 0;
+        // while(*jStr){
+        //     //msgJSON = cJSON_Parse(MENSAGEM_RECEBIDA[j]);
+        //     if(*(*MENSAGEM_RECEBIDA + j))
+        //         printf("MSG RECEBIDA: %.*s\r\n",strlen(*(MENSAGEM_RECEBIDA + j)),*(MENSAGEM_RECEBIDA + j));
+        //     else
+        //         ESP_LOGE(__func__,"Erro ao mostrar mensagem \a\n");
+        //     // ++j;
+        //     // ++jStr;
+        // }
         cJSON *alarmeLigado = cJSON_GetObjectItem(msgJSON,"ligado");
         //bool alarmeLigado = msgRec;
+        
         if(cJSON_IsFalse(alarmeLigado)){
             uint32_t numPino;
             xQueueSend(reset_evt_queue, &numPino, portTICK_PERIOD_MS);
@@ -160,19 +167,28 @@ static void tocaAlarmeTask(void *arg){
     }
 }
 
-static void temperaturaEstadoTask(void *args ){
+static void temperaturaTask(void *args ){
     float temperatura = 25.0;
+    char *jsonTempr="", *jsonEstadoAlarme="";
     while(1){
         temperatura = leTemperatura();
         vTaskDelay(700/portTICK_PERIOD_MS);
-        char msgT[150],msgJP[150];
-
-        //TODO usar cJSON
-        sprintf(msgT,"{\"valor\":\"%f\"}",temperatura);
-        sprintf(msgJP,"{\"ligado\":\"%d\"}",true);
-        enviarMsg("casa/quarto1/temperatura",msgT,1,1);
-        enviarMsg("casa/quarto1/alarme",msgJP,1,1);
         
+        cJSON *msg = cJSON_CreateObject();
+        cJSON *msgT = cJSON_AddNumberToObject(msg,"valor",temperatura);
+        cJSON *msgJP = cJSON_AddBoolToObject(msg,"ligado",estadoJanQuarto1 == 0 ? true : false);
+
+        jsonTempr = cJSON_Print(msgT);
+        jsonEstadoAlarme = cJSON_Print(msgJP);
+
+        //printf("\n\ttemperatura: %s\n",jsonTempr);
+        //printf("\talarme esta ligado: %s\n",jsonEstadoAlarme);
+
+        //sprintf(jsonTempr,"%.2f",cJSON_Parse(jsonTempr)->valuedouble);
+
+        enviarMsg("casa/quarto1/temperatura",jsonTempr,1,0);
+        //enviarMsg("casa/quarto1/alarme",jsonEstadoAlarme    ,1,1);
+        cJSON_Delete(msg);
     }
 }
 
