@@ -9,6 +9,7 @@
  * @param retain se salva (1) ou nao (0) o dado a ser enviado
 */
 void enviarMsg( char *, char *, uint8_t, uint8_t);
+void enviarJSON( char *, char *, uint8_t, uint8_t);
 
 /**
  * @brief FUNCAO PARA RECEBER MENSAGEM EM UM TOPICO DEFINIDO

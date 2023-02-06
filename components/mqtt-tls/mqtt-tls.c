@@ -30,7 +30,7 @@
 static const char *TAG = "MQTTS_CNX";
 esp_mqtt_client_handle_t client;
 
-char **MENSAGEM_RECEBIDA;
+char *MENSAGEM_RECEBIDA="";
 char *TOPICO_MSG_RECEBIDA="";
 
 #define BROKER_URL CONFIG_BROKER_URI
@@ -49,7 +49,7 @@ extern const uint8_t ca_pem_end[]   asm("_binary_ca_pem_end");
 
 void testaMem();
 /**
- * @brief FUNCAO PARA ENVIAR MENSAGEM E PUBLICAR EM UM TOPICO DEFINIDO
+ * @brief FUNCAO PARA ENVIAR MENSAGEM QUALQUER E PUBLICAR EM UM TOPICO DEFINIDO
  * @param topico topico
  * @param msg dado a ser enviado em string ou JSON
  * @param qos qualidade do serviço: 0,1 ou 2
@@ -57,6 +57,18 @@ void testaMem();
 */
 void enviarMsg(char *topico, char *msg, uint8_t qos, uint8_t retain){
     int msg_id = esp_mqtt_client_publish(client, topico, msg, 0, qos, retain);
+    ESP_LOGI(TAG, "Dado enviado com o seguinte id de mensagem =%d", msg_id);
+}
+
+/**
+ * @brief FUNCAO PARA ENVIAR EM FORMATO JSON E PUBLICAR EM UM TOPICO DEFINIDO
+ * @param topico topico
+ * @param msg dado a ser enviado em string ou JSON
+ * @param qos qualidade do serviço: 0,1 ou 2
+ * @param retain se salva (1) ou nao (0) o dado a ser enviado
+*/
+void enviarJSON(char *topico, char *msg, uint8_t qos, uint8_t retain){
+    int msg_id = esp_mqtt_client_publish(client, topico, msg, strlen(msg), qos, retain);
     ESP_LOGI(TAG, "Dado enviado com o seguinte id de mensagem =%d", msg_id);
 }
 
@@ -151,13 +163,17 @@ void mqtt_callback(esp_mqtt_event_handle_t event) {
 
     //PERCORRE AS MENSAGENS
     //char **iStr = MENSAGEM_RECEBIDA;
-    size_t i = 0;
+    //size_t i = 0;
     //while(*iStr){
-        sprintf(MENSAGEM_RECEBIDA[i],"%s \r",event->data);
+//        sprintf(MENSAGEM_RECEBIDA,"%.*s\r",event->total_data_len,event->data);
         //sprintf(TOPICO_MSG_RECEBIDA,"%s\r",event->topic);
-        ++i;
+        //++i;
         //++iStr;
     //}
+
+    // TODO mecher no sprintf em cima ou aqui
+    MENSAGEM_RECEBIDA = event->data;
+
         
     
     memset(buffer, 0, BUFFER_SIZE);
