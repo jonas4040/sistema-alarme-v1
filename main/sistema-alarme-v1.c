@@ -31,7 +31,7 @@ const char* TAG_JSON="cJSON";
 
 static QueueHandle_t win1_open_evt_queue = NULL, reset_evt_queue;
 uint8_t estadoJanQuarto1 = 0, i = 10;/** @param estadoJanQuarto1 == 0 eh fechada a janela **/
-extern char **MENSAGEM_RECEBIDA;
+extern char *MENSAGEM_RECEBIDA;
 extern char *TOPICO_MSG_RECEBIDA;
 //=============FUNÇOES====================
 void init_io(void);
@@ -71,7 +71,7 @@ void app_main(){
     xTaskCreatePinnedToCore(tocaAlarmeTask, "tocaAlarmeTask", 2048, NULL, 10, NULL, 1);
     xTaskCreatePinnedToCore(btnResetTask, "btnResetTask", 2048, NULL, 10, NULL, 1);
     xTaskCreatePinnedToCore(temperaturaTask, "temperaturaTask", 4096, NULL, 10, NULL, 1);
-    xTaskCreatePinnedToCore(mqttTask,"mqttTask",6144,NULL,10,NULL,0);
+    //xTaskCreatePinnedToCore(mqttTask,"mqttTask",6144,NULL,10,NULL,0);
 
     gpio_install_isr_service(0);
     gpio_isr_handler_add(BTN_WIN1, win1_isr_handler, (void *)BTN_WIN1);
@@ -115,7 +115,6 @@ static void reset_isr_handler(void *args){
 static void mqttTask(void *arg){
     while(1){
         //msgRec=rand() & 1;S
-                cJSON *msgJSON = cJSON_Parse(MENSAGEM_RECEBIDA[1]);
         // char **jStr = MENSAGEM_RECEBIDA;
         // size_t j = 0;
         // while(*jStr){
@@ -127,8 +126,10 @@ static void mqttTask(void *arg){
         //     // ++j;
         //     // ++jStr;
         // }
-        cJSON *alarmeLigado = cJSON_GetObjectItem(msgJSON,"ligado");
         //bool alarmeLigado = msgRec;
+
+        cJSON *msgJSON = cJSON_Parse((char *)MENSAGEM_RECEBIDA);
+        cJSON *alarmeLigado = cJSON_GetObjectItem(msgJSON,"ligado");
         
         if(cJSON_IsFalse(alarmeLigado)){
             uint32_t numPino;
@@ -176,18 +177,9 @@ static void temperaturaTask(void *args ){
         
         cJSON *msg = cJSON_CreateObject();
         cJSON *msgT = cJSON_AddNumberToObject(msg,"valor",temperatura);
-        cJSON *msgJP = cJSON_AddBoolToObject(msg,"ligado",estadoJanQuarto1 == 0 ? true : false);
 
-        jsonTempr = cJSON_Print(msgT);
-        jsonEstadoAlarme = cJSON_Print(msgJP);
-
-        //printf("\n\ttemperatura: %s\n",jsonTempr);
-        //printf("\talarme esta ligado: %s\n",jsonEstadoAlarme);
-
-        //sprintf(jsonTempr,"%.2f",cJSON_Parse(jsonTempr)->valuedouble);
-
-        enviarMsg("casa/quarto1/temperatura",jsonTempr,1,0);
-        //enviarMsg("casa/quarto1/alarme",jsonEstadoAlarme    ,1,1);
+        jsonTempr = cJSON_Print(msg);
+        enviarJSON("casa/quarto1/temperatura",jsonTempr,1,0);
         cJSON_Delete(msg);
     }
 }

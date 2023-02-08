@@ -5,3 +5,4 @@ sdkconfig.old
 sdkconfig
 sdkconfig
 sdkconfig.old
+main/Kconfig.projbuild.casa
