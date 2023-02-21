@@ -3,6 +3,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
 
@@ -33,6 +34,8 @@ static QueueHandle_t win1_open_evt_queue = NULL, reset_evt_queue;
 uint8_t estadoJanQuarto1 = 0, i = 10;/** @param estadoJanQuarto1 == 0 eh fechada a janela **/
 extern char *MENSAGEM_RECEBIDA;
 extern char *TOPICO_MSG_RECEBIDA;
+
+SemaphoreHandle_t msgMutex;
 //=============FUNÇOES====================
 void init_io(void);
 static void win1_isr_handler(void *);
@@ -68,10 +71,13 @@ void app_main(){
     wifi_inicializa();
     mqtt_app_start();
 
+    msgMutex = xSemaphoreCreateMutex();
+
+
     xTaskCreatePinnedToCore(tocaAlarmeTask, "tocaAlarmeTask", 2048, NULL, 10, NULL, 1);
     xTaskCreatePinnedToCore(btnResetTask, "btnResetTask", 2048, NULL, 10, NULL, 1);
     xTaskCreatePinnedToCore(temperaturaTask, "temperaturaTask", 4096, NULL, 10, NULL, 1);
-    //xTaskCreatePinnedToCore(mqttTask,"mqttTask",6144,NULL,10,NULL,0);
+    xTaskCreatePinnedToCore(mqttTask,"mqttTask",6144,NULL,10,NULL,1); // TODO em qual core eh o melhor para rodar esta task ?
 
     gpio_install_isr_service(0);
     gpio_isr_handler_add(BTN_WIN1, win1_isr_handler, (void *)BTN_WIN1);
@@ -127,16 +133,21 @@ static void mqttTask(void *arg){
         //     // ++jStr;
         // }
         //bool alarmeLigado = msgRec;
-
-        cJSON *msgJSON = cJSON_Parse((char *)MENSAGEM_RECEBIDA);
-        cJSON *alarmeLigado = cJSON_GetObjectItem(msgJSON,"ligado");
         
-        if(cJSON_IsFalse(alarmeLigado)){
-            uint32_t numPino;
-            xQueueSend(reset_evt_queue, &numPino, portTICK_PERIOD_MS);
-        }
+        if(xSemaphoreTake(msgMutex,800/portTICK_PERIOD_MS)){
+            cJSON *msgJSON = cJSON_Parse((char *)MENSAGEM_RECEBIDA);
+            cJSON *alarmeLigado = cJSON_GetObjectItem(msgJSON,"ligado");
+        
+            if(cJSON_IsFalse(alarmeLigado)){
+                uint32_t numPino;
+                xQueueSend(reset_evt_queue, &numPino, portTICK_PERIOD_MS);
+            }
 
-        cJSON_Delete(msgJSON);
+            cJSON_Delete(msgJSON);
+            xSemaphoreGive(msgMutex);
+        }else{
+            ESP_LOGE(__func__,"ERRO AO OBTER MENSAGEM");
+        }
     }
 }
 
