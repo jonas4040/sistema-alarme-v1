@@ -6,3 +6,4 @@ sdkconfig
 sdkconfig
 sdkconfig.old
 main/Kconfig.projbuild.casa
+main/Kconfig.projbuild.facul
